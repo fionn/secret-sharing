@@ -1,1 +1,1 @@
-git+https://github.com/fionn/lagrange-polynomial#egg=lagrange_polynomial
+git+https://github.com/fionn/lagrange-polynomial@5de8dd5666043ee72749a68d5c9d00d9d5d872bf#egg=lagrange_polynomial
