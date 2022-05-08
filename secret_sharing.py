@@ -23,15 +23,8 @@ class SplitSecret:
 
         self.m = total
         self.prime = prime
-        self.threshold = threshold
-        self.coefficients = self._gen_coefficients()
-
-    def _gen_coefficients(self) -> list:
-        degree = self.threshold - 1
-        c = [self.secret]
-        for _ in range(degree):
-            c.append(secrets.randbelow(self.prime))
-        return c
+        self.coefficients = [self.secret] + [secrets.randbelow(prime)
+                                             for _ in range(threshold - 1)]
 
     def poly(self, x: int) -> int:
         """Evaluate the polynomial"""
@@ -40,8 +33,8 @@ class SplitSecret:
             value += (c * x ** i) % self.prime
         return value % self.prime
 
-    def sample(self) -> list:
-        """Grab a bunch of points on the curve"""
+    def sample(self) -> list[tuple[int, int]]:
+        """Grab m points on the curve"""
         return [(x, self.poly(x)) for x in range(self.m)]
 
 def combine(sample: Sequence[tuple[int, int]], prime: int = PRIME) -> bytes:
@@ -53,19 +46,14 @@ def combine(sample: Sequence[tuple[int, int]], prime: int = PRIME) -> bytes:
 def main() -> None:
     """Entry point"""
     secret = b"yolo"
+
     ss = SplitSecret(secret, 3, 5)
-    sample = ss.sample()
+    shares = ss.sample()
 
-    # This block is just for sanity-testing.
-    xs, ys = zip(*sample)
-    lp = LagrangePolynomial(xs, ys, PRIME)
-    assert lp(0) == ss.poly(0)
-
-    recovered_secret = combine(sample)
+    recovered_secret = combine(shares)
     assert secret == recovered_secret
 
-    print("Original:", secret.decode())
-    print("Recovered:", recovered_secret.decode())
+    print(recovered_secret.decode())
 
 if __name__ == "__main__":
     main()
