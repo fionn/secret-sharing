@@ -1,0 +1,15 @@
+[run]
+omit =
+    setup.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    def main
+    raise AssertionError
+    raise NotImplementedError
+    pass
+    self.fail
+    if __name__ == .__main__.:
+    @unittest.skip
