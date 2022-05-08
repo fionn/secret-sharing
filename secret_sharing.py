@@ -4,63 +4,68 @@
 import secrets
 from collections.abc import Sequence
 
-from lagrange_polynomial import LagrangePolynomial # type: ignore
+from lagrange_polynomial import LagrangePolynomial
 
-PRIME = 131071  # 2 ** 17 - 1 is the 6th Mersenne prime.
+PRIME = 2 ** 31 - 1 # The 8th Mersenne prime.
 
 class SplitSecret:
     """Split a secret using Shamir's secret sharing scheme"""
 
-    def __init__(self, secret: bytes, threshold: int, total: int) -> None:
-        int_secret = int.from_bytes(secret, "big")
-        if int_secret >= PRIME:
-            raise RuntimeError("Secret is too big for finite field")
-        self._m = total
-        self._coefficients = self._generate_coefficients(int_secret,
-                                                         threshold - 1)
+    def __init__(self, secret: bytes, threshold: int, total: int, prime: int = PRIME) -> None:
+        self.secret = int.from_bytes(secret, "big")
 
-    @staticmethod
-    def _generate_coefficients(secret: int, degree: int) -> list:
-        c = [secret]
+        if threshold > total:
+            raise RuntimeError("Threshold must be less than or equal to the total")
+        if total >= PRIME:
+            raise RuntimeError("Too many participants")
+        if self.secret >= PRIME:
+            raise RuntimeError("Secret is too big for finite field")
+
+        self.m = total
+        self.prime = prime
+        self.threshold = threshold
+        self.coefficients = self._gen_coefficients()
+
+    def _gen_coefficients(self) -> list:
+        degree = self.threshold - 1
+        c = [self.secret]
         for _ in range(degree):
-            c.append(secrets.randbelow(PRIME))
+            c.append(secrets.randbelow(self.prime))
         return c
 
     def poly(self, x: int) -> int:
         """Evaluate the polynomial"""
         value = 0
-        for i, c in enumerate(self._coefficients):
-            value += (c * x ** i) % PRIME
-        return value % PRIME
+        for i, c in enumerate(self.coefficients):
+            value += (c * x ** i) % self.prime
+        return value % self.prime
 
     def sample(self) -> list:
         """Grab a bunch of points on the curve"""
-        samples = []
-        for _ in range(self._m):
-            x = secrets.randbelow(PRIME)
-            samples.append((x, self.poly(x)))
-        return samples
+        return [(x, self.poly(x)) for x in range(self.m)]
 
-def combine(xs: Sequence[float], ys: Sequence[float]) -> int:
+def combine(sample: Sequence[tuple[int, int]], prime: int = PRIME) -> bytes:
     """Solve for the secret"""
-    lagrange_poly = LagrangePolynomial(xs, ys, PRIME)
-    return lagrange_poly(0)
+    xs, ys = zip(*sample)
+    lagrange_poly = LagrangePolynomial(xs, ys, prime)
+    return lagrange_poly(0).to_bytes(32, "big").replace(b"\x00", b"")
 
 def main() -> None:
     """Entry point"""
-    secret = b"y"
+    secret = b"yolo"
     ss = SplitSecret(secret, 3, 5)
     sample = ss.sample()
 
+    # This block is just for sanity-testing.
     xs, ys = zip(*sample)
-
     lp = LagrangePolynomial(xs, ys, PRIME)
-    print(lp(0), ss.poly(0), int.from_bytes(secret, "big"))
     assert lp(0) == ss.poly(0)
 
-    int_secret = combine(xs, ys)
-    recovered_secret = int_secret.to_bytes(32, "big").replace(b"\x00", b"")
-    print(recovered_secret)
+    recovered_secret = combine(sample)
+    assert secret == recovered_secret
+
+    print("Original:", secret.decode())
+    print("Recovered:", recovered_secret.decode())
 
 if __name__ == "__main__":
     main()
