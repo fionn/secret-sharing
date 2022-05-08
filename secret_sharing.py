@@ -35,7 +35,7 @@ class SplitSecret:
 
     def sample(self) -> list[tuple[int, int]]:
         """Grab m points on the curve"""
-        return [(x, self.poly(x)) for x in range(self.m)]
+        return [(x, self.poly(x)) for x in range(1, self.m + 1)]
 
 def combine(sample: Sequence[tuple[int, int]], prime: int = PRIME) -> bytes:
     """Solve for the secret"""
@@ -46,11 +46,13 @@ def combine(sample: Sequence[tuple[int, int]], prime: int = PRIME) -> bytes:
 def main() -> None:
     """Entry point"""
     secret = b"yolo"
+    n, m = 3, 5
 
-    ss = SplitSecret(secret, 3, 5)
+    ss = SplitSecret(secret, n, m)
     shares = ss.sample()
+    print(shares)
 
-    recovered_secret = combine(shares)
+    recovered_secret = combine(shares[:n])
     assert secret == recovered_secret
 
     print(recovered_secret.decode())

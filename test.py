@@ -20,16 +20,16 @@ class TestSecretSharing(unittest.TestCase):
         """Sanity-check that the curve matches the Lagrange polynomial"""
         ss = SplitSecret(SECRET, N, M)
         shares = ss.sample()
-        xs, ys = zip(*shares)
+        xs, ys = zip(*shares[:-1])
         lp = LagrangePolynomial(xs, ys, PRIME)
         self.assertEqual(lp(0), ss.poly(0))
 
     def test_recover_secret_all_shares(self) -> None:
-        """Split and recover a secret with all shares"""
+        """Split and recover a secret with all but one share"""
         ss = SplitSecret(SECRET, N, M)
         shares = ss.sample()
         self.assertEqual(len(shares), M)
-        self.assertEqual(combine(shares), SECRET)
+        self.assertEqual(combine(shares[:-1]), SECRET)
 
     def test_recover_secret_minimum_shares(self) -> None:
         """Split and recover a secret with n shares"""

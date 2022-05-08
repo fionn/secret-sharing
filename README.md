@@ -13,9 +13,9 @@ Passing a sequence of at least _n_ shares to the `combine` function (and optiona
 ### Example
 
 ```python
-ss = SplitSecret(secret, 3, 5)
+ss = SplitSecret(secret, n, m)
 shares = ss.sample()
 
-recovered_secret = combine(shares)
+recovered_secret = combine(shares[:n])
 assert secret == recovered_secret
 ```
