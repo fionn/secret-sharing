@@ -2,55 +2,62 @@
 """Shamir's Secret Sharing"""
 
 import secrets
+from functools import cache
 from collections.abc import Sequence
 
 from lagrange_polynomial import LagrangePolynomial
 
-PRIME = 2 ** 31 - 1 # The 8th Mersenne prime.
+ORDER = 256 # We default to GF(2⁸)
 
 class SplitSecret:
     """Split a secret using Shamir's secret sharing scheme"""
 
-    def __init__(self, secret: bytes, threshold: int, total: int, prime: int = PRIME) -> None:
+    def __init__(self, secret: bytes, threshold: int, order: int = ORDER) -> None:
         self.secret = int.from_bytes(secret, "big")
 
-        if threshold > total:
-            raise RuntimeError("Threshold must be less than or equal to the total")
-        if total >= PRIME:
-            raise RuntimeError("Too many participants")
-        if self.secret >= PRIME:
+        if self.secret.bit_length() >= order.bit_length():
             raise RuntimeError("Secret is too big for finite field")
 
-        self.m = total
-        self.prime = prime
-        self.coefficients = [self.secret] + [secrets.randbelow(prime)
-                                             for _ in range(threshold - 1)]
+        self.n = threshold
+        self.order = order
+
+    @cache
+    def coefficients(self) -> list[int]:
+        """Polynomial coefficients"""
+        return [self.secret] + [secrets.randbelow(self.order)
+                                for _ in range(self.n - 1)]
 
     def poly(self, x: int) -> int:
         """Evaluate the polynomial"""
         value = 0
-        for i, c in enumerate(self.coefficients):
-            value += (c * x ** i) % self.prime
-        return value % self.prime
+        for i, c in enumerate(self.coefficients()):
+            value += (c * x ** i) % self.order
+        return value % self.order
 
-    def sample(self) -> list[tuple[int, int]]:
+    def sample(self, m: int) -> list[tuple[int, int]]:
         """Grab m points on the curve"""
-        return [(x, self.poly(x)) for x in range(1, self.m + 1)]
+        if m <= self.n:
+            raise RuntimeError("Threshold must be less than or equal to the total")
+        if m >= self.order:
+            raise RuntimeError("Too many participants")
 
-def combine(sample: Sequence[tuple[int, int]], prime: int = PRIME) -> bytes:
+        return [(x, self.poly(x)) for x in range(1, m + 1)]
+
+
+def combine(sample: Sequence[tuple[int, int]], order: int = ORDER) -> bytes:
     """Solve for the secret"""
     xs, ys = zip(*sample)
-    lagrange_poly = LagrangePolynomial(xs, ys, prime)
-    return lagrange_poly(0).to_bytes(32, "big").replace(b"\x00", b"")
+    lp = LagrangePolynomial(xs, ys, order)
+    return lp(0).to_bytes(order.bit_length() // 8, "big").replace(b"\x00", b"")
+
 
 def main() -> None:
     """Entry point"""
-    secret = b"yolo"
+    secret = b"y"
     n, m = 3, 5
 
-    ss = SplitSecret(secret, n, m)
-    shares = ss.sample()
-    print(shares)
+    ss = SplitSecret(secret, n)
+    shares = ss.sample(m)
 
     recovered_secret = combine(shares[:n])
     assert secret == recovered_secret
