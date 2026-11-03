@@ -21,6 +21,7 @@ class SplitSecret:
         self.n = threshold
         self.order = order
 
+    # pylint: disable=method-cache-max-size-none
     @cache
     def coefficients(self) -> list[int]:
         """Polynomial coefficients"""
